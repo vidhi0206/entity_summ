@@ -114,16 +114,16 @@ def filter_df(unique_prop,url_list_2_gram,url_list_1_gram):
         two_grams.extend([' '.join(split_words[i:i+2]) for i in range(len(split_words)-1)])
 
     #print(one_grams,two_grams)
-    # filtered_df_1_gram = pd.DataFrame()
-    # for url in url_list_1_gram:
-    #     download_file(url,filename1)
-    #     with gzip.open(filename1, 'rt') as gz_file:
-    #         for df in pd.read_csv(gz_file,  sep=r'[ \t]+', engine='python',header=None, chunksize=100000):
-    #             for one_gram in one_grams:
-    #                 current_filtered_df = df[df[0].astype(str).str.lower() == one_gram.lower()]
-    #                 filtered_df_1_gram = pd.concat([filtered_df_1_gram, current_filtered_df])
-    #     delete_file(filename1)
-    # filtered_df_1_gram.to_csv("filtered_1_gram.csv", sep='\t', encoding='utf-8', index=False)
+    filtered_df_1_gram = pd.DataFrame()
+    for url in url_list_1_gram:
+        download_file(url,filename1)
+        with gzip.open(filename1, 'rt') as gz_file:
+            for df in pd.read_csv(gz_file,  sep=r'[ \t]+', engine='python',header=None, chunksize=100000):
+                for one_gram in one_grams:
+                    current_filtered_df = df[df[0].astype(str).str.lower() == one_gram.lower()]
+                    filtered_df_1_gram = pd.concat([filtered_df_1_gram, current_filtered_df])
+        delete_file(filename1)
+    filtered_df_1_gram.to_csv("filtered_1_gram.csv", sep='\t', encoding='utf-8', index=False)
     filtered_df_1_gram = pd.DataFrame()
     for url in url_list_2_gram:
         download_file(url,filename2)
