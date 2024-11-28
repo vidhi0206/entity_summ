@@ -88,11 +88,15 @@ def winkler(s1, s2, comm_value, diff_value, l):
 
 
 def sim(s1, s2, p=0.6, l=0.1):
+    if not isinstance(s1, (str, list, tuple)):
+        s1 = str(s1)  # Convert to string if it's not
+    if not isinstance(s2, (str, list, tuple)):
+        s2 = str(s2)
     comm_value = commonality(s1, s2)
     diff_value = difference(s1, s2, p)
     winkler_value = winkler(s1, s2, comm_value, diff_value, l)
     similarity = comm_value - diff_value + winkler_value
-    print(similarity)
+    # print(similarity)
     return similarity
 
 
