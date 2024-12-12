@@ -1,6 +1,3 @@
-import os
-import requests
-import gzip
 import pandas as pd
 import numpy as np
 import math
@@ -11,121 +8,42 @@ from heirarchy import build_hierarchy_map, is_related_property, is_related_value
 import mpmath
 from wikes_toolkit import WikESToolkit, ESBMGraph, ESBMVersions
 
-B = 4541627  # total number of books
+# B = 4541627  # total number of books
+B = 33282600
 total_number_of_pages = 2441898561
 eps = 10**-6
-k = 3
-
-
-def download_file(url, filename):
-    # Download the file
-    print(f"Downloading file from {url}...")
-    response = requests.get(url)
-
-    # Check if the request was successful
-    if response.status_code == 200:
-        with open(filename, "wb") as file:
-            file.write(response.content)
-        print(f"File '{filename}' downloaded successfully.")
-    else:
-        print(f"Failed to download file. Status code: {response.status_code}")
-        return
-
-
-def delete_file(filename):
-    try:
-        # Delete the file
-        if os.path.exists(filename):
-            os.remove(filename)
-            print(f"File '{filename}' deleted successfully.")
-        else:
-            print(f"File '{filename}' does not exist, so it could not be deleted.")
-
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-
-def read_gz_csv(file_path):
-    with gzip.open(file_path, "rt") as gz_file:
-        df = pd.read_csv(gz_file, sep=r"[ \t]+", engine="python", header=None)
-    return df
 
 
 def familiarityFunction(k, B):
-    if B == 0 or k == 0:
+    if B <= 0:
         # print("error")
         return 0
     return math.log(k + 1) / math.log(B + 1)
 
 
-def expectation(b_f, k, B):
-    # # print(b_f, M, B)
-    # Max = min(b_f, M)
-    # Min, expectation, factor = 1, 0, 0
-    # common_factor = (
-    #     math.lgamma(b_f + 1)
-    #     + math.lgamma(B - b_f)
-    #     + math.lgamma(M)
-    #     + math.lgamma(B - M + 1)
-    #     - math.lgamma(M)
-    # )
-    # for k in range(Min, Max ):
-    #     factor = (
-    #         math.lgamma(k)
-    #         + math.lgamma(M - k)
-    #         + math.lgamma(b_f - k + 1)
-    #         + math.lgamma(B - M - b_f + k)
-    #     )
-    #     # print(factor, common_factor)
-    #     factor = common_factor - factor
-    #     # print(factor)
-    #     expectation += math.exp(factor) * familiarityFunction(k)
-    # expectation = 12345
-    # Convert inputs to mpmath-compatible types for arbitrary precision
-    # b_f = float(b_f)  # Convert to native float
-    # M = float(M)
-    # B = float(B)
-
-    # # Convert to mpmath's arbitrary precision format
-    # b_f = mpmath.mpf(b_f)
-    # M = mpmath.mpf(M)
-    # B = mpmath.mpf(B)
-
-    # Max = min(b_f, M)
-    # Min, expectation = mpmath.mpf(0), mpmath.mpf(0)
-    # # print(B - b_f + 1)
-    # common_factor = (
-    #     mpmath.loggamma(b_f + 2) + mpmath.loggamma(B - b_f + 1)
-    #     if B - b_f > 0
-    #     else (
-    #         mpmath.mpf(0)
-    #         + mpmath.loggamma(M + 1)  # Inclusive range adjustment
-    #         + mpmath.loggamma(B - M + 2)
-    #         if B - M > 0
-    #         else mpmath.mpf(0) - mpmath.loggamma(B + 2)
-    #     )
-    # )
-
-    # for k in range(int(Min), int(Max + 1)):
-    #     factor = (
-    #         mpmath.loggamma(k + 1) + mpmath.loggamma(M - k + 2)
-    #         if M - k > 0
-    #         else (
-    #             mpmath.mpf(0) + mpmath.loggamma(b_f - k + 1)
-    #             if b_f - k > 0
-    #             else (
-    #                 mpmath.mpf(0) + mpmath.loggamma(B - M - b_f + k + 1)
-    #                 if B - M - b_f + k > 0
-    #                 else mpmath.mpf(0)
-    #             )
-    #         )
-    #     )
-    #     # print(common_factor, factor)
-    #     factor = common_factor - factor
-    #     expectation += mpmath.exp(factor) * familiarityFunction(k, B)
-    #     # print(expectation)
-    # return float(expectation)
-    expectation = (b_f / B) * familiarityFunction(k, B)
+def expectation(b_f, M, B):
+    # # # print(b_f, M, B)
+    Max = int(min(b_f, M))
+    Min, expectation, factor = 0, 0, 0
+    common_factor = (
+        math.lgamma(b_f + 1) + math.lgamma(B - b_f + 2)
+        if B - b_f > 0
+        else 1 + math.lgamma(M + 2) + math.lgamma(B - M + 1) - math.lgamma(B + 2)
+    )
+    for k in range(Min, Max + 1):
+        factor = (
+            math.lgamma(k + 1)
+            + math.lgamma(M - k + 2)
+            + math.lgamma(b_f - k + 1)
+            + math.lgamma(B - M - b_f + k + 1)
+            if B - M - b_f + k > 0
+            else 1
+        )
+        # print(factor, common_factor)
+        factor = common_factor - factor
+        # print(factor)
+        expectation += math.exp(factor) * familiarityFunction(k, B)
+    expectation = expectation * math.pow(10, -30)
     return expectation
 
 
@@ -187,70 +105,6 @@ def calc_n_gram_vols(filtered_1_gram_path, filtered_2_gram_path, prop):
     return min_page_count, min_vol_count
 
 
-def filter_df_1gram(unique_prop, url_list_2_gram, url_list_1_gram):
-    filename1 = "googlebooks-eng-all-1-1gram-20120701"
-    one_grams = []
-    for prop in unique_prop:
-        split_words = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)", prop)
-        one_grams.extend(split_words)
-
-    # print(one_grams,two_grams)
-    filtered_df_1_gram = pd.DataFrame()
-    for url in url_list_1_gram:
-        download_file(url, filename1)
-        with gzip.open(filename1, "rt") as gz_file:
-            for df in pd.read_csv(
-                gz_file, sep=r"[ \t]+", engine="python", header=None, chunksize=100000
-            ):
-                for one_gram in one_grams:
-                    current_filtered_df = df[
-                        df[0].astype(str).str.lower() == one_gram.lower()
-                    ]
-                    filtered_df_1_gram = pd.concat(
-                        [filtered_df_1_gram, current_filtered_df]
-                    )
-        delete_file(filename1)
-    filtered_df_1_gram.to_csv(
-        "filtered_1_gram.csv", sep="\t", encoding="utf-8", index=False
-    )
-
-
-def filter_df_2gram(unique_prop, url_list_2_gram):
-    filename1 = "googlebooks-eng-all-1-1gram-20120701"
-    one_grams = []
-    two_grams = []
-    for prop in unique_prop:
-        split_words = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)", prop)
-        one_grams.extend(split_words)
-        two_grams.extend(
-            [" ".join(split_words[i : i + 2]) for i in range(len(split_words) - 1)]
-        )
-
-    two_grams_lower = [word.lower() for word in two_grams]
-    # print(two_grams_lower)
-
-    two_words_pattern = re.compile(r"^\s*(\w+)\s+(\w+)")
-
-    with open("filtered_output_2gram.csv", "a") as output_file:
-        for url in url_list_2_gram:
-            download_file(url, filename1)
-            with gzip.open(filename1, "rt") as gz_file:
-                for line in gz_file:
-                    # Extract the first two words from the line using regex
-                    match = two_words_pattern.match(line)
-                    # print(match," before if")
-                    if match:
-                        # print(match," after if")
-                        first_word, second_word = match.groups()
-                        # Join the two words into a bigram
-                        bigram = f"{first_word} {second_word}"
-                        # Check if the bigram is in the list of 2-grams
-                        if bigram.lower() in two_grams_lower:
-                            # print(line)
-                            output_file.write(line)
-            delete_file(filename1)
-
-
 def support(propm, propn, df):
     has_propn = df[df[1] == propn][0]
     has_propm = df[df[1] == propm][0]
@@ -282,12 +136,45 @@ def support_plus(propm, propn, df, theta):
     return supp_plus
 
 
-def extract_uri_or_literal(value, last_seg: bool):
+def extract_uri_or_literal(value, is_sub: bool, is_pred: bool, is_obj: bool):
     match = re.match(r"<(.*?)>", value)
-    if match and last_seg:
+    if match and is_sub:
         uri = match.group(1)
         return uri.split("/")[-1]  # Return last segment of URI
-    elif match and not last_seg:
+    elif match and is_pred:
+        uri = match.group(1)
+        if "#" in uri:  # Split by '#' and take the last part
+            return uri.split("#")[-1]
+        else:  # Split by '/' and take the last part
+            return uri.split("/")[-1]
+    elif match and is_obj:
+        uri = match.group(1)
+        return uri.split("/")[-1]
+
+    # Match literal with datatype
+    if value[0] == '"':
+        if "^^" in value:
+            literal_value, datatype = value.rsplit("^^", 1)
+            datatype = datatype.strip("<>")
+            if datatype == "http://dbpedia.org/datatype/usDollar":
+                return f"${float(literal_value.strip('\"'))}"  # Format as USD
+            return literal_value.strip('"')  # Return raw literal value
+
+        # Match literal with language tag
+        elif "@" in value:
+            literal_value, language = value.rsplit("@", 1)
+            # return f"{literal_value.strip('\"')}# @{language}"  # Return value with language tag
+            return literal_value.strip('"').replace(" ", "")
+
+        # Return simple literal
+        else:
+            return value.strip('"').replace(" ", "")
+    return value
+
+
+def extract_obj(value):
+    match = re.match(r"<(.*?)>", value)
+    if match:
         uri = match.group(1)
         return uri
 
@@ -312,7 +199,7 @@ def extract_uri_or_literal(value, last_seg: bool):
 
 
 def parse_triple(triple: str) -> tuple[str, str, str]:
-    triple = triple.strip(" .")  # Remove trailing space and dot
+    # triple = triple.strip(" .")  # Remove trailing space and dot
     subject, predicate, obj = triple.split(" ", 2)  # Split into three parts
     return subject.strip("<>"), predicate.strip("<>"), obj.strip("<>")
 
@@ -335,6 +222,9 @@ if __name__ == "__main__":
     filtered_2_gram_path = "filtered_2_gram.csv"
 
     df = pd.read_csv("dbpedia.csv", sep=",", header=None)
+    df_properties = pd.read_csv(
+        "dbpedia.csv", sep=",", header=None
+    )  # pd.read_csv("complete_data/dbpedia/complete_extract_dbpedia.tsv", sep=r"[ \t]+", header=None)
 
     df_class = pd.read_csv("output_classes.csv")  # superclass, class columns
     df_prop = pd.read_csv("output_property.csv")  # superprop, prop columns
@@ -371,20 +261,26 @@ if __name__ == "__main__":
         prop_min_page_count[index] = min_page_count
         prop_min_vol_count[index] = min_vol_count
 
-        utility_prop[index] = expectation(min_vol_count, k, B) * logP(
-            df, prop, num_unique_prop
+        utility_prop[index] = expectation(min_vol_count, 10, B) * logP(
+            df_properties,
+            prop,
+            num_unique_prop,  # len(df_properties[1].unique().tolist)
         )
 
     for i in range(len(unique_prop)):
         for j in range(i + 1, len(unique_prop)):
             propm = unique_prop[i]
             propn = unique_prop[j]
-            supp[i][j] = support(propm, propn, df)
-            supp_plus[i][j] = support_plus(propm, propn, df, 0.7)
+            supp[i][j] = support(propm, propn, df_properties)
+            supp[j][i] = supp[i][j]
+            supp_plus[i][j] = support_plus(propm, propn, df_properties, 0.7)
+            supp_plus[j][i] = supp_plus[i][j]
             if supp_plus[i][j] == 0 or supp[i][j] == 0:
                 confidence[i][j] = 0
+                confidence[j][i] = 0
             else:
                 confidence[i][j] = supp_plus[i][j] / supp[i][j]
+                confidence[j][i] = confidence[i][j]
 
     class_hierarchy = build_hierarchy_map(
         df_class, "last_word_superclass", "last_word_subclass"
@@ -399,7 +295,7 @@ if __name__ == "__main__":
         rho = np.zeros(
             (num_unique_prop_value_pairs, num_unique_prop_value_pairs), dtype=int
         )
-
+        np.fill_diagonal(rho, 1)
         # Populate the rho matrix based on conditions
         for j in range(len(entity_df)):
             for k in range(len(entity_df)):
@@ -424,7 +320,7 @@ if __name__ == "__main__":
                     rho[index_j][index_k] = 1
         for i in range(len(unique_prop)):
             for j in range(i + 1, len(unique_prop)):
-                if confidence[i][j] > 0.91 and supp[i][j] > 200:
+                if confidence[i][j] > 0.90 and supp[i][j] > 10:
                     prop_i = unique_prop[i]
                     prop_j = unique_prop[j]
                     indices_i = [
@@ -439,13 +335,13 @@ if __name__ == "__main__":
                     ]
                     for idx_i in indices_i:
                         for idx_j in indices_j:
+                            # print(idx_i, idx_j)
                             rho[idx_i][idx_j] = 1
         # Store the rho matrix for the current entity
         rho_matrices[entity] = rho
 
-    # objective_coefficients = utility_prop
-    # knapsack_problem = pulp.LpProblem("Knapsack_with_Dependencies", pulp.LpMaximize)
-    # unique_entity = unique_entity[:1]
+    objective_coefficients = utility_prop
+    knapsack_problem = pulp.LpProblem("Knapsack_with_Dependencies", pulp.LpMaximize)
     entities = {}
     results = {}
     L = 10
@@ -458,8 +354,9 @@ if __name__ == "__main__":
         entities[entity] = [prop_value_to_index[pair] for pair in entity_prop_values]
 
     matched_triples = []
-
+    count = 0
     for entity in unique_entity:
+        count = count + 1
         knapsack_problem = pulp.LpProblem(
             f"Knapsack_with_Dependencies_Entity_{entity}", pulp.LpMaximize
         )
@@ -477,7 +374,7 @@ if __name__ == "__main__":
             "Total_Utility",
         )
         knapsack_problem += (
-            pulp.lpSum([lengths_prop[i] * X[i] for i in props]) <= L,
+            pulp.lpSum([X[i] for i in props]) <= 10,
             f"Length_Constraint_Entity_{entity}",
         )
         for j in props:
@@ -487,7 +384,9 @@ if __name__ == "__main__":
                         X[j] + X[k] <= 1,
                         f"Dependency_Constraint_{j}_{k}_Entity_{entity}",
                     )
-        knapsack_problem.solve()
+        knapsack_problem.solve(pulp.COIN_CMD())
+        binary_values = {i: X[i].varValue for i in props}
+        selected_items = sum([binary_values[i] for i in props])
         selected_items = [i for i in props if X[i].value() == 1]
         selected_item_names = [
             unique_prop_value_pairs[i] for i in props if X[i].value() == 1
@@ -508,30 +407,37 @@ if __name__ == "__main__":
                         subject_uri, predicate_uri, object_value = match.groups()
                         # Extract URIs or literals from the triple
                         subject = extract_uri_or_literal(
-                            subject_uri, True
+                            subject_uri, True, False, False
                         )  # extract last part of uri
                         predicate = extract_uri_or_literal(
-                            predicate_uri, True
+                            predicate_uri, False, True, False
                         )  # extract last part of uri
-                        object = extract_uri_or_literal(object_value, False)
-                        # if '"' in object_value:
-                        # print(subject_uri, object_value, object)
-                        # print(subject, predicate, object)
-
-                        # Check for matches
+                        object = extract_uri_or_literal(
+                            object_value, False, False, True
+                        )
+                        object_to_add_to_result = extract_obj(object_value)
                         for (
                             expected_predicate,
                             expected_object,
                         ) in predicate_object_pairs:
+                            # print(expected_predicate, expected_object)
                             if (
-                                predicate == expected_predicate
+                                subject == entity
+                                and predicate == expected_predicate
                                 and object == expected_object
                             ):
+                                # print(
+                                #     f"{subject_uri} {predicate_uri} {object_to_add_to_result}"
+                                # )
                                 matched_triples.append(
-                                    f"{subject_uri} {predicate_uri} {object}"
+                                    f"{subject_uri} {predicate_uri} {object_to_add_to_result}"
                                 )
+    #     print(entity)
+    #     print(len(matched_triples))
     # print(matched_triples)
+    print(count)
     converted_data = convert_triples_to_dict(matched_triples)
+    # print(converted_data)
     toolkit = WikESToolkit()
     G = toolkit.load_graph(
         ESBMGraph,
@@ -547,7 +453,8 @@ if __name__ == "__main__":
     number_of_directed_edges = G.total_triples()
     for root_entity, triples in converted_data.items():
         # print(triples)
+        # print(root_entity)
         G.mark_triples_as_summaries(root_entity, triples)
 
     f1_10 = G.f1_score(10)
-    print("f1 score for 10 summaries", f1_10)
+    print("f1 score for 10 properties", f1_10)

@@ -39,6 +39,8 @@ def is_related_property(prop_a, prop_b, hierarchy):
 
 # Function to check if val_a is related to val_b
 def is_related_value(val_a, val_b, hierarchy):
+    # print(hierarchy.get(val_a, set()))
+    # print(hierarchy.get(val_b, set()))
     return (
         val_a == val_b
         or val_b in hierarchy.get(val_a, set())
